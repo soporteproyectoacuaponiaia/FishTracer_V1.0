@@ -41,9 +41,9 @@ class MorphometricAnalyzer:
 
         if contour_lat is not None and len(contour_lat) >= 5:
             rect_lat = cv2.minAreaRect(contour_lat)
-            (dim1, dim2) = rect_lat[1]
-            box_length_px = max(dim1, dim2)
-            box_height_px = min(dim1, dim2)
+            (cx_lat, cy_lat), (width_lat, height_lat), angle_lat = rect_lat
+            box_length_px = max(width_lat, height_lat)
+            box_height_px = min(width_lat, height_lat)
             
             if spine_length_px and spine_length_px > 0:
                 curvature_index = spine_length_px / box_length_px
@@ -58,11 +58,11 @@ class MorphometricAnalyzer:
         delta_z_cm = 0.0
         if contour_top is not None and len(contour_top) >= 5:
             rect_top = cv2.minAreaRect(contour_top)
-            (t_dim1, t_dim2) = rect_top[1]
+            (cx_top, cy_top), (width_top, height_top), angle_top = rect_top
 
-            w_cm = min(t_dim1, t_dim2) * scale_top
+            w_cm = min(width_top, height_top) * scale_top
             
-            delta_z_cm = max(t_dim1, t_dim2) * scale_top
+            delta_z_cm = max(width_top, height_top) * scale_top
             real_area_top_cm2 = cv2.contourArea(contour_top) * (scale_top ** 2)
         else:
             w_cm = h_cm * Config.DEFAULT_WIDTH_RATIO

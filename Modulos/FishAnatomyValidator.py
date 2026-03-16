@@ -55,8 +55,9 @@ class FishAnatomyValidator:
         try:
             # 1. Aspect Ratio
             rect = cv2.minAreaRect(contour)
-            L = max(rect[1])
-            H = min(rect[1])
+            (cx, cy), (width, height), angle = rect
+            L = max(width, height)  # Largo (mayor dimensión)
+            H = min(width, height)  # Alto (menor dimensión)
             aspect = L / max(H, 0.1)
 
             aspect_valid = Config.MIN_ASPECT_RATIO <= aspect <= Config.MAX_ASPECT_RATIO

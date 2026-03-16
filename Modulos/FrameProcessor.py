@@ -49,16 +49,19 @@ class FrameProcessor(QThread):
         self.frame_count = 0
         self.skip_validation = False 
         self.capture_requested = False
-        self.tracker = FishTracker()
         
         self.moondream_detector = moondream_detector_instance
         self._check_ai_status()
 
     def _check_ai_status(self):
         if self.moondream_detector and hasattr(self.moondream_detector, 'is_ready') and self.moondream_detector.is_ready:
-            self.signals.progress_update.emit("✅ IA Avanzada + Spine Measurer listos.")
+            has_api = bool(getattr(self.moondream_detector, 'api_model', None))
+            if has_api:
+                self.signals.progress_update.emit("✅ IA Avanzada + fallback local listos.")
+            else:
+                self.signals.progress_update.emit("⚠️ Modo local (fallback clásico) activo.")
         else:
-            self.signals.progress_update.emit("⚠️ Modo básico (Solo Cajas).")
+            self.signals.progress_update.emit("❌ Detector no disponible.")
 
     def add_frame(self, frame_left, frame_top, params):
         try:
@@ -117,34 +120,75 @@ class FrameProcessor(QThread):
                 continue
             except Exception as e:
                 logger.error(f"Error en FrameProcessor loop: {str(e)}.")
-                self.result_ready.emit({})
+                self.result_ready.emit({'error': str(e)})
 
     def process_frames(self, frame_left, frame_top, params):
         try:
             start_time = time.time()
-            
-            scale_front_left = params.get('scale_front_left', 0.00635786)
-            scale_back_left = params.get('scale_back_left', 0.01827964)
-            scale_front_top = params.get('scale_front_top', 0.00507581)
-            scale_back_top = params.get('scale_back_top', 0.01502311)
 
-            hsv_left = {
-                'h_min': params.get('hue_left_min', 35),
-                'h_max': params.get('hue_left_max', 85),
-                's_min': params.get('sat_left_min', 40),
-                's_max': params.get('sat_left_max', 255),
-                'v_min': params.get('val_left_min', 40),
-                'v_max': params.get('val_left_max', 255)
-            }
-            
-            hsv_top = {
-                'h_min': params.get('hue_top_min', 35),
-                'h_max': params.get('hue_top_max', 85),
-                's_min': params.get('sat_top_min', 40),
-                's_max': params.get('sat_top_max', 255),
-                'v_min': params.get('val_top_min', 40),
-                'v_max': params.get('val_top_max', 255)
-            }
+            scales = params.get('scales', {}) if isinstance(params, dict) else {}
+            hsv_lateral = params.get('hsv_lateral', []) if isinstance(params, dict) else []
+            hsv_cenital = params.get('hsv_cenital', []) if isinstance(params, dict) else []
+            detection_params = params.get('detection', {}) if isinstance(params, dict) else {}
+
+            scale_front_left = scales.get(
+                'lat_front',
+                params.get('scale_front_left', Config.SCALE_LAT_FRONT)
+            )
+            scale_back_left = scales.get(
+                'lat_back',
+                params.get('scale_back_left', Config.SCALE_LAT_BACK)
+            )
+            scale_front_top = scales.get(
+                'top_front',
+                params.get('scale_front_top', Config.SCALE_TOP_FRONT)
+            )
+            scale_back_top = scales.get(
+                'top_back',
+                params.get('scale_back_top', Config.SCALE_TOP_BACK)
+            )
+
+            if isinstance(hsv_lateral, (list, tuple)) and len(hsv_lateral) >= 6:
+                hsv_left = {
+                    'h_min': hsv_lateral[0],
+                    'h_max': hsv_lateral[1],
+                    's_min': hsv_lateral[2],
+                    's_max': hsv_lateral[3],
+                    'v_min': hsv_lateral[4],
+                    'v_max': hsv_lateral[5]
+                }
+            else:
+                hsv_left = {
+                    'h_min': params.get('hue_left_min', Config.HSV_H_MIN),
+                    'h_max': params.get('hue_left_max', Config.HSV_H_MAX),
+                    's_min': params.get('sat_left_min', Config.HSV_S_MIN),
+                    's_max': params.get('sat_left_max', Config.HSV_S_MAX),
+                    'v_min': params.get('val_left_min', Config.HSV_V_MIN),
+                    'v_max': params.get('val_left_max', Config.HSV_V_MAX)
+                }
+
+            if isinstance(hsv_cenital, (list, tuple)) and len(hsv_cenital) >= 6:
+                hsv_top = {
+                    'h_min': hsv_cenital[0],
+                    'h_max': hsv_cenital[1],
+                    's_min': hsv_cenital[2],
+                    's_max': hsv_cenital[3],
+                    'v_min': hsv_cenital[4],
+                    'v_max': hsv_cenital[5]
+                }
+            else:
+                hsv_top = {
+                    'h_min': params.get('hue_top_min', Config.HSV_H_MIN),
+                    'h_max': params.get('hue_top_max', Config.HSV_H_MAX),
+                    's_min': params.get('sat_top_min', Config.HSV_S_MIN),
+                    's_max': params.get('sat_top_max', Config.HSV_S_MAX),
+                    'v_min': params.get('val_top_min', Config.HSV_V_MIN),
+                    'v_max': params.get('val_top_max', Config.HSV_V_MAX)
+                }
+
+            contour_min_area = int(detection_params.get('min_area', Config.MIN_CONTOUR_AREA))
+            contour_max_area = int(detection_params.get('max_area', Config.MAX_CONTOUR_AREA))
+            confidence_threshold = float(detection_params.get('confidence', Config.CONFIDENCE_THRESHOLD))
 
             is_stable = self.motion_detector.is_stable(frame_left)
             if not is_stable and not self.skip_validation and not Config.DEBUG_MODE:
@@ -173,7 +217,6 @@ class FrameProcessor(QThread):
                 self.signals.progress_update.emit(f"❌ Error en análisis: {str(e)}")
                 return None
             
-            ia_end = time.time()
             ia_time_ms = (time.time() - ia_start) * 1000
             self.signals.ia_time_ready.emit(ia_time_ms)
             # Añadir temporalmente para diagnosticar:
@@ -190,8 +233,18 @@ class FrameProcessor(QThread):
             self.signals.roi_status.emit(True)
 
             # 4. EXTRACCIÓN DE CONTORNOS Y ACTUALIZACIÓN DEL TRACKER
-            c_lat = self._retrieve_contour_for_tracker(frame_left, hsv_left)
-            c_top = self._retrieve_contour_for_tracker(frame_top, hsv_top)
+            c_lat = self._retrieve_contour_for_tracker(
+                frame_left,
+                hsv_left,
+                min_area=contour_min_area,
+                max_area=contour_max_area
+            )
+            c_top = self._retrieve_contour_for_tracker(
+                frame_top,
+                hsv_top,
+                min_area=contour_min_area,
+                max_area=contour_max_area
+            )
             
             try:
                 self.tracker.update(
@@ -205,17 +258,33 @@ class FrameProcessor(QThread):
 
             # 5. EMPAQUETADO DE RESULTADOS
             is_stable = self.motion_detector.is_stable(frame_left)
+            smoothed_metrics = self.tracker.get_smoothed_measurement()
+            tracking_stats = self.tracker.get_tracking_stats()
+            tracking_count = len(self.tracker.measurements)
             confidence = self._calculate_confidence(metrics, is_stable, ia_time_ms)
+
+            if tracking_count < Config.TEMPORAL_SMOOTHING_MIN_FRAMES:
+                confidence = max(0.0, confidence - 0.05)
+
+            box_lat = metrics.get('box_lat')
+            box_top = metrics.get('box_top')
 
             return {
                 'frame_left': img_lat_ann if img_lat_ann is not None else frame_left,
                 'frame_top': img_top_ann if img_top_ann is not None else frame_top,
+                'box_lat': box_lat,
+                'box_top': box_top,
                 'contour_left': c_lat,
                 'contour_top': c_top,
+                'detected_lat': c_lat is not None,
+                'detected_top': c_top is not None,
                 'metrics': metrics,
-                'smoothed_metrics': self.tracker.get_smoothed_measurement(),
-                'is_consistent': self.tracker.get_tracking_stats().get('is_consistent', False),
+                'smoothed_metrics': smoothed_metrics,
+                'tracking_count': tracking_count,
+                'tracking_stats': tracking_stats,
+                'is_consistent': tracking_stats.get('is_consistent', False),
                 'confidence': confidence,
+                'confidence_threshold': confidence_threshold,
                 'processing_time': (time.time() - start_time) * 1000,
                 'ia_time': ia_time_ms,
                 'is_stable': is_stable,
@@ -226,7 +295,7 @@ class FrameProcessor(QThread):
             logger.error(f"Error critico en process_frames: {str(e)}", exc_info=True)
             return None
 
-    def _retrieve_contour_for_tracker(self, clean_frame, hsv_params):
+    def _retrieve_contour_for_tracker(self, clean_frame, hsv_params, min_area=500, max_area=None):
         """
         Acepta parámetros HSV específicos para la cámara
 
@@ -262,7 +331,13 @@ class FrameProcessor(QThread):
             contours, _ = cv2.findContours(mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
             
             # Filtro rápido de área
-            valid = [c for c in contours if cv2.contourArea(c) >= 500]
+            if max_area is None or max_area <= 0:
+                valid = [c for c in contours if cv2.contourArea(c) >= min_area]
+            else:
+                valid = [
+                    c for c in contours
+                    if min_area <= cv2.contourArea(c) <= max_area
+                ]
             return max(valid, key=cv2.contourArea) if valid else None
 
         except Exception as e:

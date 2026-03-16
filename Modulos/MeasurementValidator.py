@@ -29,6 +29,9 @@ class MeasurementValidator:
         lat_area = float(metrics.get('lat_area_cm2', 0.0))
         top_area = float(metrics.get('top_area_cm2', 0.0))
         k_factor = metrics.get('condition_factor', 0.0)
+        has_top_view = bool(metrics.get('has_top_view', False))
+        length_lat_cm_raw = float(metrics.get('length_lat_cm_raw', 0.0) or 0.0)
+        length_top_cm_raw = float(metrics.get('length_top_cm_raw', 0.0) or 0.0)
 
         # 1. Validar Rangos Físicos 
         if not (Config.MIN_LENGTH_CM <= length <= Config.MAX_LENGTH_CM):
@@ -88,5 +91,15 @@ class MeasurementValidator:
                     f"⚠️ Incoherencia Espacial: Área Top ({top_area:.0f}) > Lateral ({lat_area:.0f}). "
                     "Posible pez nadando de lado o cámaras invertidas."
                 )
+
+        if has_top_view and length_lat_cm_raw > 0 and length_top_cm_raw > 0:
+            base = max(length_lat_cm_raw, length_top_cm_raw)
+            if base > 0:
+                diff_ratio = abs(length_lat_cm_raw - length_top_cm_raw) / base
+                if diff_ratio > Config.MAX_LENGTH_VIEW_DISCREPANCY_RATIO:
+                    errors.append(
+                        f"⚠️ Inconsistencia estéreo: longitud lateral ({length_lat_cm_raw:.2f} cm) "
+                        f"vs cenital ({length_top_cm_raw:.2f} cm), diferencia {diff_ratio:.0%}."
+                    )
 
         return errors

@@ -96,6 +96,20 @@ class BiometryService:
                 logger.error(f"Escala lateral invalida: {px_to_cm_lat}. Abortando medicion.")
                 return None, img_lat, img_top
 
+            lat_box_len_px = max(
+                abs(res_lat.bbox[2] - res_lat.bbox[0]),
+                abs(res_lat.bbox[3] - res_lat.bbox[1])
+            )
+            length_lat_cm_raw = lat_box_len_px * px_to_cm_lat
+
+            length_top_cm_raw = 0.0
+            if has_top:
+                top_box_len_px = max(
+                    abs(res_top.bbox[2] - res_top.bbox[0]),
+                    abs(res_top.bbox[3] - res_top.bbox[1])
+                )
+                length_top_cm_raw = top_box_len_px * px_to_cm_top
+
             # ============================================================
             # 3. ESTIMACIÓN BIOMÉTRICA (cm)
             # ============================================================
@@ -111,6 +125,14 @@ class BiometryService:
             # ============================================================
             spine_cm_lat = res_lat.spine_length * px_to_cm_lat
             spine_cm_top = (res_top.spine_length * px_to_cm_top) if has_top else 0.0
+
+            metrics['has_top_view'] = bool(has_top)
+            metrics['length_lat_cm_raw'] = round(length_lat_cm_raw, 2)
+            metrics['length_top_cm_raw'] = round(length_top_cm_raw, 2)
+            metrics['spine_lat_cm'] = round(spine_cm_lat, 2)
+            metrics['spine_top_cm'] = round(spine_cm_top, 2)
+            metrics['box_lat'] = tuple(map(int, res_lat.bbox)) if res_lat and res_lat.bbox else None
+            metrics['box_top'] = tuple(map(int, res_top.bbox)) if has_top and res_top and res_top.bbox else None
 
             current_len = metrics.get('length_cm', 0)
             best_length = max(current_len, spine_cm_lat, spine_cm_top)

@@ -140,6 +140,11 @@ class MainWindow(QMainWindow):
         "📷": "info", "▶️": "info", "⚙️": "info", "🧠": "info"
     }
     
+    # Caché de directorios de imágenes para evitar escaneo O(n×d) en historial
+    _image_directory_cache = {}  # {base_dir: [lista_archivos]}
+    _last_cache_update = 0
+    _cache_ttl_seconds = 300  # Actualizar caché cada 5 minutos
+    
     def __init__(self, api_service: ApiService = None):
         super().__init__()
         self.api_service = api_service
@@ -478,7 +483,17 @@ class MainWindow(QMainWindow):
         """
         Motor de anotación.
         """
-        if image is None: return None
+        if image is None:
+            return None
+        if not isinstance(data, dict):
+            return image
+
+        required_keys = {'tipo', 'numero', 'longitud', 'peso', 'fecha'}
+        if not required_keys.issubset(data.keys()):
+            missing = required_keys.difference(set(data.keys()))
+            logger.warning(f"draw_fish_overlay: faltan claves {sorted(missing)}")
+            return image
+
         img = image.copy()
         h, w = img.shape[:2]
         font = cv2.FONT_HERSHEY_SIMPLEX
@@ -535,11 +550,34 @@ class MainWindow(QMainWindow):
         if not result or not isinstance(result, dict):
             self._show_error_result("❌ Error: No se recibió resultado del procesador")
             return
+
+        if result.get('error'):
+            self._show_error_result(f"❌ Error en procesamiento: {result.get('error')}")
+            return
         
         metrics = result.get('metrics', {})
         if not metrics or not isinstance(metrics, dict):
             self._show_error_result("❌ Error: Resultado sin métricas válidas")
             return
+
+        source_mode = result.get('source_mode', 'auto')
+        tracking_count = int(result.get('tracking_count', 0) or 0)
+        smoothed_metrics = result.get('smoothed_metrics')
+        temporal_min_frames = int(getattr(Config, 'TEMPORAL_SMOOTHING_MIN_FRAMES', 3))
+
+        can_use_smoothed = (
+            source_mode != 'manual_ai'
+            and bool(getattr(Config, 'USE_TEMPORAL_SMOOTHING', True))
+            and isinstance(smoothed_metrics, dict)
+            and smoothed_metrics.get('length_cm', 0) > 0
+            and tracking_count >= temporal_min_frames
+        )
+
+        if can_use_smoothed:
+            merged_metrics = dict(metrics)
+            merged_metrics.update(smoothed_metrics)
+            metrics = merged_metrics
+            result['metrics'] = metrics
         
         length_cm = metrics.get('length_cm')
         if length_cm is None or not isinstance(length_cm, (int, float)) or length_cm <= 0:
@@ -558,6 +596,8 @@ class MainWindow(QMainWindow):
 
         contour_left = result.get('contour_left')
         contour_top  = result.get('contour_top')
+        detected_lat = bool(result.get('detected_lat', contour_left is not None))
+        detected_top = bool(result.get('detected_top', contour_top is not None))
 
         if hasattr(self, 'tracker'):
             self.tracker.update(
@@ -568,6 +608,7 @@ class MainWindow(QMainWindow):
             )
 
         confidence = float(result.get('confidence', 0.0))
+        confidence_threshold = float(result.get('confidence_threshold', Config.CONFIDENCE_THRESHOLD))
         
         # VALIDACIÓN ANATÓMICA Y BIOMÉTRICA
         val_anatomica = result.get('fish_validation_left', {})
@@ -577,16 +618,21 @@ class MainWindow(QMainWindow):
         
         # Advertencias de detección
 
-        if contour_left is None and contour_top is None:
+        if not detected_lat and not detected_top:
             warnings.append("⚠️ No se detectaron contornos válidos")
-        elif contour_left is None:
+        elif not detected_lat:
             warnings.append("⚠️ Falta contorno lateral")
-        elif contour_top is None:
+        elif not detected_top:
             warnings.append("⚠️ Falta contorno cenital")
         if not val_anatomica.get('is_fish', True):
             warnings.append("⚠️ Forma anatómica inusual detectada")
-        if confidence < Config.CONFIDENCE_THRESHOLD:
+        if confidence < confidence_threshold:
             warnings.append(f"⚠️ Confianza baja ({confidence:.0%})")
+
+        if source_mode != 'manual_ai' and tracking_count < temporal_min_frames:
+            warnings.append(
+                f"⚠️ Estabilidad temporal insuficiente ({tracking_count}/{temporal_min_frames} frames válidos)."
+            )
         
         # Advertencias biométricas
         warnings.extend(val_biometrica)
@@ -626,9 +672,9 @@ class MainWindow(QMainWindow):
 
         self._update_results_report(metrics, confidence, warnings, result)
         fish_detected = (
-            contour_left is not None
-            and contour_top is not None
-            and confidence >= Config.CONFIDENCE_THRESHOLD
+            detected_lat
+            and detected_top
+            and confidence >= confidence_threshold
         )
 
         self._handle_stability_and_autocapture(
@@ -954,9 +1000,9 @@ class MainWindow(QMainWindow):
         try:
             # Tiempos ajustados para feedback del usuario
             QTimer.singleShot(100, self.save_sound.play)
-            QTimer.singleShot(17100, self.save_sound.play) # Sonido inmediato
-            QTimer.singleShot(17000, self._save_measurement_silent)
-            QTimer.singleShot(20000, self.unlock_after_save)
+            QTimer.singleShot(Config.AUTO_CAPTURE_SAVE_DELAY_MS + 100, self.save_sound.play) # Sonido inmediato
+            QTimer.singleShot(Config.AUTO_CAPTURE_SAVE_DELAY_MS, self._save_measurement_silent)
+            QTimer.singleShot(Config.AUTO_CAPTURE_SAVE_DELAY_MS + 3000, self.unlock_after_save)
         except Exception as e:
             logger.error(f"Error en auto-guardado: {e}")
             self.processing_lock = False
@@ -2112,7 +2158,7 @@ class MainWindow(QMainWindow):
                 data = {
                     'timestamp': timestamp.isoformat(),
                     'fish_id': txt_id.text().strip(),
-                    'measurement_type': 'manual_qr' if is_mobile else 'manual_pc',
+                    'measurement_type': 'manual_qr' if is_mobile else 'manual_externo_pc',
                     
                     # Campos principales
                     'length_cm': spin_length.value(),
@@ -2485,9 +2531,12 @@ class MainWindow(QMainWindow):
                     'frame_left': img_lat_ann,
                     'frame_top': img_top_ann,
                     'is_stable': True,
+                    'source_mode': 'manual_ai',
                     'fish_validation_left': {'is_fish': True},
-                    'contour_left': True,
-                    'contour_top': True
+                    'contour_left': None,
+                    'contour_top': None,
+                    'detected_lat': True,
+                    'detected_top': True
                 }
 
                 self.on_processing_complete(result_fake)
@@ -2511,6 +2560,20 @@ class MainWindow(QMainWindow):
 
         finally:
             QApplication.restoreOverrideCursor()
+            self.processing_lock = False
+
+            if hasattr(self, 'btn_capture'):
+                self.btn_capture.setEnabled(True)
+
+            if hasattr(self, 'btn_manual_capture'):
+                self.btn_manual_capture.setEnabled(True)
+
+            if hasattr(self, 'btn_load_image'):
+                self.btn_load_image.setEnabled(True)
+
+            if hasattr(self, 'btn_qr'):
+                self.btn_qr.setEnabled(True)
+
             self.btn_manual_ai_assist.setEnabled(True)
             self.btn_manual_ai_assist.setText(" Asistente IA")
             self.btn_manual_ai_assist.setIcon(qta.icon("fa5s.magic", color="white"))
@@ -2670,7 +2733,6 @@ class MainWindow(QMainWindow):
             combined_final = self.draw_fish_overlay(combined, info_auto)
             cv2.imwrite(filepath, combined_final)
             
-            api_data = SensorService.get_water_quality_data()
             data = {
                 'timestamp': timestamp.isoformat(),
                 'fish_id': fish_id,  
@@ -2846,6 +2908,28 @@ class MainWindow(QMainWindow):
             )
             if reply == QMessageBox.StandardButton.No: return
 
+        manual_metrics = {
+            'length_cm': float(length_cm),
+            'height_cm': float(height_cm),
+            'width_cm': float(width_cm),
+            'weight_g': float(weight_g),
+            'lat_area_cm2': float(ai_lat_area) if 'ai_lat_area' in locals() else 0.0,
+            'top_area_cm2': float(ai_top_area) if 'ai_top_area' in locals() else 0.0,
+            'volume_cm3': float(ai_vol) if 'ai_vol' in locals() else 0.0,
+            'has_top_view': True
+        }
+        validation_errors = MeasurementValidator.validate_measurement(manual_metrics)
+        if validation_errors:
+            errors_text = "\n".join(validation_errors)
+            reply = QMessageBox.question(
+                self,
+                "⚠️ Validación",
+                f"Se detectaron las siguientes advertencias:\n\n{errors_text}\n\n¿Desea guardar de todos modos?",
+                QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No
+            )
+            if reply == QMessageBox.StandardButton.No:
+                return
+
         try:
             timestamp = datetime.now()
             safe_fish_id = re.sub(r'[^\w\-]', '_', fish_id)
@@ -2917,7 +3001,7 @@ class MainWindow(QMainWindow):
             'measurement_type': 'manual', 
             'notes': str(notes),
             'image_path': str(filepath),
-            'validation_errors': '',
+            'validation_errors': ', '.join(validation_errors) if validation_errors else '',
             
         }
         data.update(api_data)
@@ -2941,7 +3025,7 @@ class MainWindow(QMainWindow):
             QMessageBox.critical(self, "Error Base de Datos", f"No se pudo registrar en la BD:\n{e}")
             # Intentar borrar la imagen huérfana
             if os.path.exists(filepath): os.remove(filepath)
- 
+
     def _save_measurement_silent(self):
         """
         Versión silenciosa de guardado BLINDADA y con DIBUJO DE CONTORNOS ORIGINAL.
@@ -3797,8 +3881,29 @@ class MainWindow(QMainWindow):
         if checked:
             self.update_history_preview()
 
+    def _refresh_image_directory_cache(self):
+        """Actualiza caché de directorios si ha expirado (evita O(n×d) cada query)."""
+        now = time.time()
+        if now - self._last_cache_update > self._cache_ttl_seconds:
+            self._image_directory_cache.clear()
+            search_dirs = [
+                os.path.abspath(Config.IMAGES_MANUAL_DIR),
+                os.path.abspath(Config.IMAGES_AUTO_DIR),
+                os.path.abspath(os.path.join("Resultados", "Imagenes_Manuales")),
+                os.path.abspath(os.path.join("Resultados", "Imagenes_Automaticas")),
+            ]
+            for base in search_dirs:
+                if os.path.isdir(base):
+                    try:
+                        files = os.listdir(base)
+                        self._image_directory_cache[base] = files
+                    except Exception as e:
+                        logger.debug(f"No se pudo cachear {base}: {e}")
+                        self._image_directory_cache[base] = []
+            self._last_cache_update = now
+
     def _resolve_measurement_image_path(self, measurement_data):
-        """Resuelve la ruta real de la imagen usando ruta directa, nombre y timestamp."""
+        """Resuelve ruta de imagen usando caché (O(1) vs O(n×d))."""
         if not measurement_data:
             return None
 
@@ -3806,6 +3911,7 @@ class MainWindow(QMainWindow):
         fish_id = str(measurement_data.get('fish_id', '') or '').strip()
         ts_str = str(measurement_data.get('timestamp', '') or '').strip()
 
+        # 1. Intenta ruta directa primero
         if image_path:
             abs_path = os.path.abspath(image_path)
             if os.path.exists(abs_path):
@@ -3813,25 +3919,20 @@ class MainWindow(QMainWindow):
             if os.path.exists(image_path):
                 return image_path
 
-        search_dirs = [
-            os.path.abspath(Config.IMAGES_MANUAL_DIR),
-            os.path.abspath(Config.IMAGES_AUTO_DIR),
-            os.path.abspath(os.path.join("Resultados", "Imagenes_Manuales")),
-            os.path.abspath(os.path.join("Resultados", "Imagenes_Automaticas")),
-        ]
+        # 2. Actualiza caché (con TTL de 5 min)
+        self._refresh_image_directory_cache()
 
-        unique_dirs = []
-        for path in search_dirs:
-            if path not in unique_dirs and os.path.isdir(path):
-                unique_dirs.append(path)
-
+        search_dirs = list(self._image_directory_cache.keys())
         filename = os.path.basename(image_path) if image_path else ""
+        
+        # 3. Busca por nombre si existe
         if filename:
-            for base in unique_dirs:
+            for base in search_dirs:
                 candidate = os.path.join(base, filename)
                 if os.path.exists(candidate):
                     return candidate
 
+        # 4. Busca por timestamp (usando caché, no iterando cada vez)
         timestamp_key = ""
         if ts_str:
             timestamp_key = ts_str.replace("-", "").replace(":", "").replace(" ", "_")[:15]
@@ -3839,16 +3940,14 @@ class MainWindow(QMainWindow):
         if len(timestamp_key) > 10:
             valid_ext = ('.jpg', '.jpeg', '.png', '.bmp', '.webp')
             matches = []
-            for base in unique_dirs:
-                try:
-                    for name in os.listdir(base):
-                        lower_name = name.lower()
-                        if timestamp_key in name and lower_name.endswith(valid_ext):
-                            matches.append(os.path.join(base, name))
-                except Exception:
-                    continue
+            for base, files in self._image_directory_cache.items():
+                for name in files:
+                    lower_name = name.lower()
+                    if timestamp_key in name and lower_name.endswith(valid_ext):
+                        matches.append(os.path.join(base, name))
 
             if matches:
+                # Prefiere match que incluya fish_id si disponible
                 if fish_id:
                     for candidate in matches:
                         if fish_id in os.path.basename(candidate):
@@ -8913,7 +9012,7 @@ QPushButton[class="info"] {{
             self.tray_icon.setIcon(self.error_icon)
         
         self.is_alert_icon = not self.is_alert_icon
-          
+
     def check_api_health_for_tray(self):
         """Monitorea el estado y activa parpadeo si no hay conexión pública."""
         is_ok = False

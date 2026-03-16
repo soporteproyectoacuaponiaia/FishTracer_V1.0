@@ -143,6 +143,54 @@ class AdvancedDetector:
                 "type": "remote"
             })
 
+        self.detectors_chain.append({
+            "name": "Classic HSV Fallback",
+            "method": self._detect_with_classic_vision,
+            "type": "local"
+        })
+
+    def _detect_with_classic_vision(self, image_bgr: np.ndarray) -> Optional[Tuple[int, int, int, int]]:
+        """Fallback local sin nube basado en segmentación HSV del fondo y contorno del pez."""
+        if image_bgr is None or image_bgr.size == 0:
+            return None
+
+        try:
+            hsv = cv2.cvtColor(image_bgr, cv2.COLOR_BGR2HSV)
+            lower_bg = np.array([Config.HSV_H_MIN, Config.HSV_S_MIN, Config.HSV_V_MIN], dtype=np.uint8)
+            upper_bg = np.array([Config.HSV_H_MAX, Config.HSV_S_MAX, Config.HSV_V_MAX], dtype=np.uint8)
+
+            mask_bg = cv2.inRange(hsv, lower_bg, upper_bg)
+            mask_fish = cv2.bitwise_not(mask_bg)
+
+            kernel = np.ones((5, 5), np.uint8)
+            mask_fish = cv2.morphologyEx(mask_fish, cv2.MORPH_OPEN, kernel)
+            mask_fish = cv2.morphologyEx(mask_fish, cv2.MORPH_CLOSE, kernel)
+
+            contours, _ = cv2.findContours(mask_fish, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+            if not contours:
+                return None
+
+            valid = []
+            for contour in contours:
+                area = cv2.contourArea(contour)
+                if Config.MIN_CONTOUR_AREA <= area <= Config.MAX_CONTOUR_AREA:
+                    valid.append(contour)
+
+            if not valid:
+                return None
+
+            contour = max(valid, key=cv2.contourArea)
+            x, y, w, h = cv2.boundingRect(contour)
+
+            if w < Config.MIN_BOX_SIZE_PX or h < Config.MIN_BOX_SIZE_PX:
+                return None
+
+            return (x, y, x + w, y + h)
+
+        except Exception as e:
+            logger.debug(f"Fallback clasico fallo: {e}")
+            return None
+
     def detect_fish(self, image_bgr: np.ndarray) -> Optional[Tuple[int, int, int, int]]:
         """
         Ejecuta la cadena de detectores hasta encontrar un resultado válido.
@@ -220,10 +268,12 @@ class AdvancedDetector:
 
         try:
             # 2. Segmentación (Refinamiento con SAM)
-            mask = self.refiner.get_body_mask(image_bgr, list(raw_box))
+            mask = self.refiner.get_body_mask(processed_img, list(raw_box))
             
             if mask is None or cv2.countNonZero(mask) == 0:
                 return result
+
+            mask = self._refine_mask_with_grabcut(processed_img, mask)
 
             # === NUEVO: BLOQUEO ESTRICTO DE CAJA ===
             # Creamos una jaula negra del tamaño de la imagen

@@ -2,18 +2,18 @@
 
 <div align="center">
 
-![Python](https://img.shields.io/badge/Python-3.8+-blue.svg)
+![Python](https://img.shields.io/badge/Python-3.11+-blue.svg)
 ![OpenCV](https://img.shields.io/badge/OpenCV-4.x-green.svg)
 ![License](https://img.shields.io/badge/License-MIT-yellow.svg)
-![Status](https://img.shields.io/badge/Status-En%20Desarrollo-orange.svg)
+![Status](https://img.shields.io/badge/Status-Production%20Ready-brightgreen.svg)
 
 **Sistema no invasivo de monitoreo biométrico para acuicultura sostenible**
 
+[Inicio Rápido](#-inicio-rápido) •
 [Características](#-características-principales) •
-[Instalación](#-instalación-rápida) •
-[Uso](#-guía-de-uso) •
-[Documentación](#-documentación) •
-[Investigación](#-publicación-científica)
+[Documentación](#-📚-documentación-completa) •
+[Publicación](##-publicación-científica) •
+[Equipo](#-equipo-de-desarrollo)
 
 </div>
 
@@ -32,7 +32,6 @@
 - [Ventajas del Sistema](#-ventajas-del-sistema)
 - [Publicación Científica](#-publicación-científica)
 - [Equipo de Desarrollo](#-equipo-de-desarrollo)
-- [Contribuciones](#-contribuciones)
 - [Licencia](#-licencia)
 - [Contacto](#-contacto)
 
@@ -62,7 +61,6 @@ Sistema automatizado que:
 - 🤖 Procesa automáticamente mediante algoritmos de Machine Learning
 - 📏 Calcula dimensiones biométricas (largo, alto, ancho, peso)
 - 💾 Almacena datos para trazabilidad histórica
-- 🍽️ Ajusta automáticamente la dosificación de alimento
 
 ---
 
@@ -75,10 +73,11 @@ Sistema automatizado que:
 - Resolución Full HD (1080p)
 
 ### 🧠 Inteligencia Artificial
-- **Detección automática** del pez mediante modelo Moondream
-- **Segmentación precisa** del contorno mediante técnicas de visión por computadora
-- **Corrección de distorsión óptica** por refracción del agua y vidrio
-- **Precisión del 93%** en medición longitudinal
+- **Detección semántica** del pez mediante Moondream (VLM)
+- **Segmentación con SAM** del contorno del pez (MobileSAM)
+- **Segmentación HSV** como fallback (visión clásica)
+- **Corrección de distorsión óptica** mediante Ley de Snell adaptada a 3 medios
+- **Precisión del 93%** en medición longitudinal (validado en investigación)
 
 ### 📊 Análisis Biométrico
 - Cálculo automático de:
@@ -106,14 +105,15 @@ Sistema automatizado que:
 ## 🛠️ Tecnologías Utilizadas
 
 ### Lenguajes y Frameworks
-- **Python 3.8+** - Lenguaje principal
-- **OpenCV** - Procesamiento de imágenes
+- **Python 3.11+** - Lenguaje principal (recomendado)
+- **OpenCV** - Procesamiento de imágenes (CPU + CUDA opcional)
 - **NumPy** - Cálculos numéricos
-- **Tkinter** - Interfaz gráfica
+- **PySide6 (Qt6)** - Interfaz gráfica moderna
 
 ### Inteligencia Artificial
-- **Moondream** - Detección de región de interés (ROI)
-- **YOLOv8** - Segmentación avanzada
+- **Moondream** - Modelo de lenguaje visual (VLM) para detección semántica del pez
+- **SAM (Segment Anything Model)** - MobileSAM para segmentación precisa del contorno
+- **OpenCV HSV** - Segmentación clásica como fallback
 - **Algoritmos personalizados** - Corrección óptica y calibración
 
 ### Base de Datos
@@ -137,21 +137,79 @@ Sistema automatizado que:
 - **OS**: Windows 10/11 (64-bit)
 - **Procesador**: Intel i5 o AMD Ryzen 5 (4 núcleos)
 - **RAM**: 8 GB
-- **GPU**: NVIDIA GTX 1050 o superior (con soporte CUDA)
+- **GPU**: Opcional (NVIDIA RTX para aceleración, 100% funcional sin GPU)
 - **Almacenamiento**: 5 GB libres
-- **Python**: 3.8 o superior
+- **Python**: 3.10 o superior (3.11 recomendado)
 
 ### Requisitos Recomendados
 - **OS**: Windows 11 (64-bit)
 - **Procesador**: AMD Ryzen 7 o Intel i7 (8+ núcleos)
 - **RAM**: 16-24 GB
-- **GPU**: NVIDIA RTX 3060 o superior
+- **GPU**: NVIDIA RTX 3060+ (opcional, para ~2.5x performance con CUDA)
 - **Almacenamiento**: 10 GB libres (SSD recomendado)
+- **Python**: 3.11+
 - **Cámaras**: 2x Full HD 1080p (USB 3.0)
 
 ---
 
-## 🚀 Instalación Rápida
+## 📚 Documentación Completa
+
+### 🎯 Guías por Caso de Uso
+
+| Necesitas... | Lee... | Audiencia |
+|--|--|--|
+| **Instalar en tu PC** | [INSTALL.md](INSTALL.md) | Usuarios finales |
+| **Compilar ejecutable** | [BUILD_GUIDE.md](BUILD_GUIDE.md) | Desarrolladores |
+| **Quick reference** | [BUILD_QUICK_REF.txt](BUILD_QUICK_REF.txt) | Todos (1 página) |
+| **Activar GPU (opcional)** | [CUDA_SETUP.md](CUDA_SETUP.md) | Power users |
+| **API y configuración** | [Config/Config.py](Config/Config.py) | Desarrolladores |
+
+### 📖 Flujos de Trabajo
+
+**👤 Soy usuario final, solo quiero usar la app:**
+1. Lee [INSTALL.md](INSTALL.md) (5 min)
+2. Ejecuta `build_exe.bat` → elige opción [2] (1 min)
+3. Haz clic en "FishTrace" desde Desktop ✅
+
+**👨‍💻 Soy desarrollador, necesito cambiar el código:**
+1. Lee [INSTALL.md](INSTALL.md) sección "Instalación Manual" (5 min)
+2. Haz cambios en el código
+3. Ejecuta `python app.py` para probar (desarrollo)
+4. Cuando esté listo, ejecuta `build_exe.bat` → opción [2] o [5]
+
+**🚀 Necesito compilar para producción:**
+1. Lee [BUILD_GUIDE.md](BUILD_GUIDE.md) (10 min)
+2. Ejecuta `build_exe.bat` → opción [3] (requiere admin)
+3. Instala en `C:\Program Files\FishTrace` automáticamente ✅
+
+**⚡ Quiero activar aceleración GPU (opcional):**
+1. Lee [CUDA_SETUP.md](CUDA_SETUP.md) (15 min)
+2. Instala CUDA Toolkit + recompila OpenCV (30-60 min)
+3. Ejecuta `build_exe.bat` → opción [2]
+4. Sistema usa GPU automáticamente 🎮
+
+---
+
+## ⚡ Inicio Rápido
+
+### 🎯 3 Pasos para Empezar
+
+```batch
+# 1. Ejecutar script de instalación
+build_exe.bat
+
+# 2. Seleccionar opción [2] o [3]
+# [2] = Local + Desktop shortcuts
+# [3] = Program Files (producción)
+
+# 3. Esperar ~1 minuto → ✅ Listo
+```
+
+**Resultado:** Ejecutable compilado + accesos directos automáticos
+
+---
+
+## 🚀 Instalación Completa (Manual)
 
 ### Paso 1: Clonar el Repositorio
 
@@ -176,61 +234,115 @@ notepad .env
 MOONDREAM_API_KEY=tu_clave_api_aqui
 ```
 
-### Paso 3: Instalación Automática
+### Paso 3: Compilar (Automático con build_exe.bat)
 
-Ejecuta el archivo batch para instalar todas las dependencias automáticamente:
+**Opción A: Instalación Automática Recomendada**
 
 ```bash
 build_exe.bat
 ```
 
-Este script:
-- ✅ Crea un entorno virtual de Python
-- ✅ Instala todas las dependencias necesarias
-- ✅ Descarga modelos de IA requeridos
-- ✅ Configura la base de datos
-- ✅ Compila el ejecutable (opcional)
+Elige una opción:
+- **[1]** Local EXE (desarrollo)
+- **[2]** Local + Desktop + Menú Inicio (testing) ⭐ **Recomendado**
+- **[3]** Program Files + Desktop + Menú Inicio (producción, requiere admin)
+- **[4]** Solo instalar dependencias
+- **[5]** Limpiar y compilar desde cero
 
-**⏱️ Tiempo estimado**: 5-10 minutos (dependiendo de tu conexión a internet)
+**⏱️ Tiempo estimado**: 1-2 minutos
 
-### Paso 4: Ejecutar la Aplicación
-
-Después de la instalación, ejecuta:
+**Opción B: Instalación Manual (para desarrollo)**
 
 ```bash
+# Crear entorno virtual
+python -m venv .venv
+.venv\Scripts\activate
+
+# Instalar dependencias
+pip install --upgrade pip setuptools wheel
+pip install -r requirements.txt
+
+# Ejecutar
 python app.py
 ```
 
-O utiliza el ejecutable generado en la carpeta `dist/`.
+### Paso 4: Ejecutar
+
+Después de compilar con `build_exe.bat`:
+
+```bash
+# Opción 1: Desde Desktop (si elegiste opción [2] o [3])
+# → Doble clic en "FishTrace" en Desktop
+
+# Opción 2: Desde línea de comandos
+.\FishTrace.exe
+
+# Opción 3: Desde código (desarrollo)
+python app.py
+```
 
 ---
 
 ## ⚙️ Configuración Inicial
 
-### 1. Calibración de Cámaras
+### 1. Calibración de Escalas (cm/píxel)
 
-Antes del primer uso, es necesario calibrar las cámaras:
+**PreCalibración por defecto:**
+El sistema viene precalibrado para el túnel experimental de LESTOMA-UDEC:
+- **Cámara Lateral**: 
+  - Zona cercana: 0.00635786 cm/px (7 cm del lente)
+  - Zona lejana: 0.01827964 cm/px (22 cm del lente)
+- **Cámara Cenital**:
+  - Zona cercana: 0.00507581 cm/px
+  - Zona lejana: 0.01502311 cm/px
 
+**Para ajustar calibración (si cambias cámaras o distancias):**
 1. Abre la aplicación
-2. Ve a **Configuración > Calibración**
-3. Coloca un objeto de tamaño conocido (regla calibrada)
-4. Sigue las instrucciones en pantalla
-5. Guarda los parámetros de calibración
+2. Ve a **Configuración > Calibración de Escalas**
+3. Usa el "Calibrador de Escala" con objeto de referencia conocido
+4. Haz clic en "Aplicar Calibración Manual"
+5. Los valores se guardan en `config.json`
 
 ### 2. Configuración del Túnel de Muestreo
 
-**Distancia óptima cámara-vidrio**: **7 cm**
+**Distancias críticas (según diseño LESTOMA):**
+- **Cámara a acrílico**: 7 cm (no cambies, es la validada)
+- **Grosor del acrílico**: 0.4 cm (4 mm, material del túnel)
+- **Profundidad del agua**: hasta 15 cm máximo
 
-Esta distancia fue determinada experimentalmente y proporciona:
-- ✅ Campo de visión completo del pez
-- ✅ Minimiza distorsión óptica
-- ✅ Mejor precisión en mediciones
+**Condiciones óptimas:**
+- ✅ Fondo **blanco o verde claro** para mejor contraste HSV
+- ✅ Iluminación uniforme y sin sombras (LEDs recomendado)
+- ✅ Evita reflejos directos en el acrílico
+- ✅ Agua limpia sin turbidez
 
-### 3. Configuración de Iluminación
+### 3. API Key de Moondream (IA)
 
-- Utiliza fondo **verde** para mejor contraste
-- Iluminación uniforme sin sombras
-- Evita reflejos directos en el vidrio
+Requerida para detección automática:
+
+```bash
+# En Windows PowerShell (Como Administrador)
+[System.Environment]::SetEnvironmentVariable("MOONDREAM_API_KEY", "tu_clave", "Machine")
+
+# O crear archivo .env
+echo MOONDREAM_API_KEY=tu_clave > .env
+```
+
+Obtén tu clave gratuita en: https://moondream.ai/
+
+### 4. Opcional: ngrok para API remota
+
+Si quieres acceso desde internet (captura desde móvil):
+
+```bash
+# PowerShell (Como Administrador)
+[System.Environment]::SetEnvironmentVariable("NGROK_AUTHTOKEN", "tu_token", "Machine")
+
+# O en .env
+echo NGROK_AUTHTOKEN=tu_token >> .env
+```
+
+Obtén gratis en: https://ngrok.com/
 
 ---
 
@@ -270,6 +382,32 @@ Esta distancia fue determinada experimentalmente y proporciona:
    - Filtra por fecha, ID o rango de tamaño
    - Exporta datos a CSV o Excel
 
+### Modo Remoto (API REST + Móvil)
+
+FishTrace incluye API REST para captura remota desde dispositivos móviles u otro software:
+
+**1. Activar API (con ngrok para acceso remoto):**
+   - Ve a **Configuración > API REST**
+   - Habilita "Servidor API"
+   - (Opcional) Habilita ngrok si tienes NGROK_AUTHTOKEN configurado
+   - Se genera URL pública para acceso remoto
+
+**2. Endpoints disponibles:**
+   ```
+   POST /api/capture        → Enviar imagen para analizar
+   GET  /api/measurements   → Obtener historial de mediciones
+   POST /api/measurement    → Guardar nueva medición manualmente
+   GET  /api/status         → Estado del sistema
+   ```
+
+**3. Captura desde móvil:**
+   - Escanea QR en la ventana de configuración
+   - Captura foto desde app móvil (iOS/Android)
+   - La imagen se procesa en el servidor local
+   - Resultado aparece en historial
+
+**Nota:** Requiere opcional `NGROK_AUTHTOKEN` en `.env` para acceso remoto desde internet.
+
 ---
 
 ## 🏗️ Arquitectura del Sistema
@@ -277,9 +415,9 @@ Esta distancia fue determinada experimentalmente y proporciona:
 ```
 ┌─────────────────────────────────────────────────────┐
 │                 ZONA DE MUESTREO                    │
-│  ┌────────────┐        ┌────────────┐              │
-│  │  TANQUE 1  │◄──────►│  TANQUE 2  │              │
-│  └────────────┘        └────────────┘              │
+│  ┌────────────┐        ┌────────────┐               │
+│  │  TANQUE 1  │◄──────►│  TANQUE 2  │               │
+│  └────────────┘        └────────────┘               │
 │         │                     │                     │
 │         │    ┌──────────┐     │                     │
 │         └───►│  TÚNEL   │◄────┘                     │
@@ -288,11 +426,11 @@ Esta distancia fue determinada experimentalmente y proporciona:
 │                   │                                 │
 │         ┌─────────┴──────────┐                      │
 │         │                    │                      │
-│    ┌────▼────┐         ┌────▼────┐                 │
-│    │ CÁMARA  │         │ CÁMARA  │                 │
-│    │ CENITAL │         │ LATERAL │                 │
-│    └────┬────┘         └────┬────┘                 │
-└─────────┼───────────────────┼─────────────────────┘
+│    ┌────▼────┐         ┌────▼────┐                  │ 
+│    │ CÁMARA  │         │ CÁMARA  │                  │
+│    │ CENITAL │         │ LATERAL │                  │
+│    └────┬────┘         └────┬────┘                  │
+└─────────┼───────────────────┼───────────────────────┘
           │                   │
           │     USB / Red     │
           └────────┬──────────┘
@@ -301,20 +439,21 @@ Esta distancia fue determinada experimentalmente y proporciona:
      │  SISTEMA DE PROCESAMIENTO  │
      │                            │
      │  ┌──────────────────────┐  │
-     │  │  MOONDREAM + YOLOv8  │  │
-     │  │  (Detección de ROI)  │  │
+     │  │  MOONDREAM + SAM     │  │
+     │  │  (Detección semántica│  │
+     │  │   + Segmentación)    │  │
      │  └──────────┬───────────┘  │
-     │             │               │
+     │             │              │
      │  ┌──────────▼───────────┐  │
      │  │  OpenCV + Algoritmos │  │
      │  │  (Segmentación)      │  │
      │  └──────────┬───────────┘  │
-     │             │               │
+     │             │              │
      │  ┌──────────▼───────────┐  │
      │  │  Corrección Óptica   │  │
      │  │  (Refracción)        │  │
      │  └──────────┬───────────┘  │
-     │             │               │
+     │             │              │
      │  ┌──────────▼───────────┐  │
      │  │  Cálculo Biométrico  │  │
      │  │  (L, A, An, Peso)    │  │
@@ -337,33 +476,50 @@ Esta distancia fue determinada experimentalmente y proporciona:
 ```
 acuaponia-v1.002/
 │
-├── app.py                      # Aplicación principal
-├── build_exe.bat              # Script de instalación
+├── app.py                      # Punto de entrada de la aplicación
+├── build_exe.bat              # Script de compilación a ejecutable
+├── config.json                # Configuración guardada del usuario
 ├── requirements.txt           # Dependencias Python
 ├── logo.ico                   # Ícono de la aplicación
 ├── save_ok.wav               # Sonido de confirmación
 │
-├── BasedeDatos/              # Módulo de base de datos
+├── BasedeDatos/              # Gestión de base de datos
 │   ├── __init__.py
-│   └── database_manager.py
+│   └── DatabaseManager.py    # ORM y operaciones SQLite
 │
-├── Config/                   # Archivos de configuración
-│   ├── calibration.json      # Parámetros de calibración
-│   └── settings.json         # Configuración general
-│
-├── Herramientas/            # Utilidades y herramientas
+├── Config/                   # Configuración centralizada
 │   ├── __init__.py
-│   ├── image_processor.py   # Procesamiento de imágenes
-│   └── optical_correction.py # Corrección óptica
+│   └── Config.py             # Constantes, calibración, API keys
 │
-├── Modulos/                 # Módulos principales
-│   ├── __init__.py
-│   ├── camera_module.py     # Control de cámaras
-│   ├── ai_detection.py      # Detección con IA
-│   ├── biometry.py          # Cálculos biométricos
-│   └── ui_interface.py      # Interfaz gráfica
+├── Herramientas/            # Utilidades especializadas
+│   ├── mobil.py             # API REST para captura desde móvil
+│   └── SensorService.py     # Integración con sensores IoT
 │
-└── README.md                # Este archivo
+├── Modulos/                 # Módulos principales del sistema
+│   ├── MainWindow.py         # Interfaz gráfica (PySide6)
+│   ├── OptimizedCamera.py    # Control y sincronización de cámaras
+│   ├── FishDetector.py       # Detección con HSV + CUDA opcional
+│   ├── AdvancedDetector.py   # Detección avanzada con IA
+│   ├── BiometryService.py    # Cálculos biométricos
+│   ├── MorphometricAnalyzer.py # Análisis de dimensiones
+│   ├── FrameProcessor.py     # Procesamiento async de frames
+│   ├── ApiService.py         # REST API + ngrok para acceso remoto
+│   ├── StatusBar.py          # Monitoreo de CPU/RAM/GPU
+│   └── Otros módulos especializados
+│
+├── Resultados/              # Salida de mediciones
+│   ├── Imagenes_Automaticas/ # Fotos de capturas automáticas
+│   ├── Imagenes_Manuales/   # Fotos de capturas manuales
+│   ├── CSV/                 # Exportación de datos
+│   ├── Graficos/            # Gráficos generados
+│   └── Reportes/            # Reportes en PDF
+│
+├── Eventos/                 # Logs del sistema
+│   └── app.log              # Archivo de registro
+│
+└── .env (opcional)          # Variables de entorno
+    # MOONDREAM_API_KEY = tu_clave
+    # NGROK_AUTHTOKEN = tu_token (opcional, para API remota)
 ```
 
 ---
@@ -427,26 +583,48 @@ La investigación validó el sistema mediante un estudio de **mes y medio** con 
 
 ### 🔍 Metodología Científica
 
-El sistema implementa corrección de **distorsión óptica** mediante la Ley de Snell:
+El sistema implementa corrección de **distorsión óptica** mediante la Ley de Snell adaptada a 3 medios (aire, acrílico, agua):
 
-```
-d_real = (d_aparente - e) · (n_agua / n_vidrio) + e · (n_vidrio / n_aire)
-```
+**Constantes de refracción (definidas en Config.py):**
 
-Donde:
-- `d_aparente`: Distancia medida en la imagen
-- `d_real`: Distancia real corregida
-- `e`: Espesor del vidrio (4mm)
-- `n_aire ≈ 1.0003`
-- `n_vidrio ≈ 1.5`
-- `n_agua ≈ 1.333`
+| Parámetro | Valor | Descripción |
+|--|--|--|
+| `N_AIRE` | 1.0 | Índice de refracción del aire |
+| `N_ACRILICO` | 1.5 | Índice de refracción del acrílico del túnel |
+| `N_AGUA` | 1.333 | Índice de refracción del agua |
+| `DIST_AIRE` | 7.0 cm | Distancia cámara a la pared acrílica |
+| `ESP_ACRILICO` | 0.4 cm | Espesor de la pared acrílica |
+| `DIST_AGUA_MAX` | 15.0 cm | Profundidad máxima del agua en el túnel |
 
-Además, se aplicaron **funciones polinómicas de corrección** para compensar variaciones según la posición del pez en el túnel:
+**Fórmula de corrección implementada:**
 
 ```python
-# Función polinómica promedio
-y_promedio = 0.0011·x² - 0.0355·x + 7.5852
+# Camino óptico total (suma de distancias / índices de refracción)
+dist_aparente = (DIST_AIRE / N_AIRE) + (ESP_ACRILICO / N_ACRILICO) + (dist_agua_actual / N_AGUA)
+
+# Factor de corrección
+factor_correccion = dist_aparente / dist_real
+
+# Escala aplicada a píxeles para obtener medidas en cm
+escala_final = escala_aire * factor_correccion
 ```
+
+**Calibración espacial por zonas:**
+
+El sistema realiza calibración en 2 zonas del túnel:
+- **Zona cercana** (7 cm del lente): Escala cercan: 0.00635786 cm/px (lateral), 0.00507581 cm/px (cenital)
+- **Zona lejana** (22 cm del lente): Escala lejana: 0.01827964 cm/px (lateral), 0.01502311 cm/px (cenital)
+
+La escala se interpola linealmente según la posición vertical del pez, compensando la distorsión radial inherente a las lentes.
+
+**Validación morfométrica:**
+
+Todas las mediciones son validadas contra restricciones biológicas de trucha (*Oncorhynchus mykiss*):
+- **Longitud**: 4-50 cm (rango normal para cultivo)
+- **Factor K de Fulton**: 0.7-2.2 (tolerancia)  / 0.9-1.5 (óptimo)
+- **Relación de aspecto**: 2.5-7.0 (largo/alto)
+- **Solidez**: 0.75-0.97 (lleno del contorno)
+- **Simetría**: mínimo 0.70 respecto al eje longitudinal
 
 ### 📄 Citar este Trabajo
 
@@ -502,39 +680,9 @@ Si utilizas este sistema en tu investigación, por favor cita:
 Extensión Facatativá, Cundinamarca, Colombia
 
 **Laboratorio**: LESTOMA (Laboratorio Experimental de Sistemas Tecnológicos Orientados a Modelos Acuapónicos)
-
 ---
 
-## 🤝 Contribuciones
-
-Este proyecto está en **desarrollo activo** y acepta contribuciones. Si deseas colaborar:
-
-### Cómo Contribuir
-
-1. **Fork** el repositorio
-2. Crea una **rama** para tu feature (`git checkout -b feature/AmazingFeature`)
-3. **Commit** tus cambios (`git commit -m 'Add some AmazingFeature'`)
-4. **Push** a la rama (`git push origin feature/AmazingFeature`)
-5. Abre un **Pull Request**
-
-### Áreas de Contribución
-
-Estamos especialmente interesados en contribuciones en:
-
-- 🎨 **Mejoras de interfaz**: Diseño UI/UX
-- 🧠 **Modelos de IA**: Optimización de algoritmos de detección
-- 📊 **Análisis de datos**: Nuevas métricas biométricas
-- 🌐 **Internacionalización**: Traducción a otros idiomas
-- 📖 **Documentación**: Tutoriales y guías
-- 🐛 **Reportes de bugs**: Identificación y solución de errores
-
-### Código de Conducta
-
-Por favor, lee nuestro [Código de Conducta](CODE_OF_CONDUCT.md) antes de contribuir.
-
----
-
-## 📜 Licencia
+## 📄 Licencia
 
 Este proyecto está licenciado bajo la **Licencia MIT** - ver el archivo [LICENSE](LICENSE) para más detalles.
 
@@ -586,33 +734,16 @@ Agradecimientos especiales a:
 
 ## 📅 Roadmap
 
-### Versión Actual (v1.0)
+### Versión Actual (v1.2) ✅
 - ✅ Sistema de captura dual de imágenes
-- ✅ Detección automática con IA
-- ✅ Corrección de distorsión óptica
-- ✅ Cálculo de biometría básica
-- ✅ Base de datos local
-
-### Próximas Versiones
-
-#### v1.1 (Q2 2025)
-- 🔄 Mejora de precisión en estimación de peso
-- 📊 Dashboard de análisis avanzado
-- 📱 Aplicación móvil para monitoreo remoto
-- ☁️ Sincronización en la nube
-
-#### v2.0 (Q4 2025)
-- 🌐 Sistema multi-tanque
-- 🤖 Predicción de crecimiento con ML
-- 📈 Análisis predictivo de alimentación
-- 🔔 Sistema de alertas inteligente
-- 🎯 Detección de comportamientos anormales
-
-#### Futuro (2026+)
-- 🦠 Detección temprana de enfermedades
-- 🌡️ Integración con sensores ambientales
-- 📊 Big Data analytics para optimización de producción
-- 🏭 Versión industrial para granjas comerciales
+- ✅ Detección automática con IA (Moondream + SAM/MobileSAM + HSV fallback)
+- ✅ Corrección de distorsión óptica avanzada
+- ✅ Cálculo de biometría completa (L, A, An, K, Peso)
+- ✅ Base de datos local con trazabilidad
+- ✅ Script de compilación profesional (5 opciones)
+- ✅ CUDA detection y GPU acceleration (opcional)
+- ✅ Documentación completa (4 guías + README)
+- ✅ **Status: Production Ready**
 
 ---
 
@@ -676,6 +807,6 @@ Sí, el sistema permite exportar a formato CSV, Excel y JSON para análisis post
 
 ---
 
-**© 2025 Universidad de Cundinamarca - LESTOMA. Todos los derechos reservados.**
+**© 2026 Universidad de Cundinamarca - LESTOMA. Todos los derechos reservados.**
 
 </div>

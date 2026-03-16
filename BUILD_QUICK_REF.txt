@@ -1,0 +1,43 @@
+# 🚀 COMPILACION RAPIDA - Build_exe.bat v1.002
+
+## ⚡ 3 Pasos Rápidos
+
+```batch
+1. Doble clic en: build_exe.bat
+2. Selecciona opción: [2]
+3. Espera ~1 min → ✅ Listo
+```
+
+**Resultado:** FishTrace en Desktop + Menú Inicio
+
+---
+
+## 🎯 Opciones Principales
+
+| Opción | Para Qué | Acceso | Ubicación |
+|--------|----------|--------|-----------|
+| **[1]** | Dev local | Ninguno | Carpeta actual |
+| **[2]** | Testing | Desktop + Menú | Carpeta actual |
+| **[3]** | Final user | Desktop + Menú | Program Files |
+| **[4]** | Solo deps | N/A | N/A |
+| **[5]** | Clean build | Desktop + Menú | Carpeta actual |
+
+---
+
+## 🔧 Requisitos
+
+✅ Python 3.11+ en PATH  
+✅ requirements.txt en raíz  
+✅ app.py en raíz  
+✅ logo.ico (opcional)  
+
+---
+
+## ❌ Error Común & Solución
+
+**"Python 3.11 no encontrado"**
+→ Reinstala Python desde python.org + marca "Add to PATH"
+
+---
+
+Más detalles: Ver `BUILD_GUIDE.md`

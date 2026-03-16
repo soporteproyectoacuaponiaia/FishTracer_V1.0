@@ -2,8 +2,8 @@
 PROYECTO: FishTrace - Trazabilidad de Crecimiento de Peces
 MÓDULO: Motor de Detección en Tiempo Real (FishDetector.py)
 DESCRIPCIÓN: Implementa algoritmos de visión por computadora para la segmentación 
-             por color (Chroma Key). Cuenta con una arquitectura híbrida (CPU/GPU) 
-             que utiliza aceleración CUDA cuando está disponible para maximizar los FPS.
+            por color (Chroma Key). Cuenta con una arquitectura híbrida (CPU/GPU) 
+            que utiliza aceleración CUDA cuando está disponible para maximizar los FPS.
 """
 
 import cv2
@@ -17,8 +17,16 @@ from .FishAnatomyValidator import FishAnatomyValidator
 logger = logging.getLogger(__name__)
 
 class FishDetector:
-    def __init__(self):
+    def __init__(self, force_cpu: bool = False):
+        """
+        Inicializa FishDetector con soporte híbrido CPU/GPU.
+        
+        Args:
+            force_cpu: Si True, fuerza uso de CPU incluso si CUDA está disponible.
+                    Útil para debugging o en equipos sin CUDA Toolkit.
+        """
         self.use_chroma_key = True
+        self.force_cpu = force_cpu
 
         self.kernel_small = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (3, 3))
         self.kernel_medium = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (5, 5))
@@ -33,14 +41,17 @@ class FishDetector:
         self.gpu_filter_morph_close = None
         self.gpu_filter_gauss = None
 
+        # Detección de CUDA
         try:
-            if cv2.cuda.getCudaEnabledDeviceCount() > 0:
+            cuda_device_count = cv2.cuda.getCudaEnabledDeviceCount() if not force_cpu else 0
+            
+            if cuda_device_count > 0:
                 self.use_cuda = True
                 # Filtro MORPH_OPEN 
                 self.gpu_filter_morph_open = cv2.cuda.createMorphologyFilter(
                     cv2.MORPH_OPEN, cv2.CV_8UC1, self.kernel_small
                 )
-                # Filtro MORPH_CLOSE (
+                # Filtro MORPH_CLOSE
                 self.gpu_filter_morph_close = cv2.cuda.createMorphologyFilter(
                     cv2.MORPH_CLOSE, cv2.CV_8UC1, self.kernel_medium
                 )
@@ -48,12 +59,26 @@ class FishDetector:
                 self.gpu_filter_gauss = cv2.cuda.createGaussianFilter(
                     cv2.CV_8UC1, cv2.CV_8UC1, (3, 3), 0
                 )
-                logger.info("Aceleracion CUDA activada.")
+                logger.info("🎮 Aceleración CUDA activada (OpenCV compilado con CUDA).")
             else:
-                logger.warning("No se detecto CUDA. Usando CPU.")
+                if force_cpu:
+                    logger.info("💾 CPU forzado por usuario. Usando CPU.")
+                else:
+                    logger.warning(
+                        "⚠️ CUDA no detectado. OpenCV compilado sin soporte CUDA.\n"
+                        "   Usando CPU (más lento).\n"
+                        "   💡 NOTA: Si tu sistema tiene GPU NVIDIA, puedes compilar OpenCV con CUDA:\n"
+                        "      pip install opencv-contrib-python-cuda   # Si disponible\n"
+                        "      O compilar manualmente con CUDA Toolkit instalado."
+                    )
         except Exception as e:
-            logger.error(f"Error iniciando CUDA: {e}.")
+            logger.error(f"❌ Error detectando CUDA: {e}. Usando CPU fallback.")
             self.use_cuda = False
+    
+    @classmethod
+    def create_with_cpu_override(cls):
+        """Factory method para crear instancia forzando CPU (para debugging)."""
+        return cls(force_cpu=True)
 
     def detect_fish_chroma_key(self, frame, camera_id='left'):
         """ Sin validación anatómica - Versión Híbrida CPU/GPU """
@@ -79,7 +104,7 @@ class FishDetector:
             mask_fish = self._process_cpu_pipeline(frame)
 
         contours, _ = cv2.findContours(mask_fish, cv2.RETR_EXTERNAL, 
-                                     cv2.CHAIN_APPROX_SIMPLE)
+                                    cv2.CHAIN_APPROX_SIMPLE)
         
         if contours:
             valid_contours = [c for c in contours 
@@ -162,9 +187,9 @@ class FishDetector:
         mask_fish = cv2.bitwise_not(mask_green)
         
         mask_fish = cv2.morphologyEx(mask_fish, cv2.MORPH_OPEN, 
-                                     self.kernel_small, iterations=1)
+                                    self.kernel_small, iterations=1)
         mask_fish = cv2.morphologyEx(mask_fish, cv2.MORPH_CLOSE, 
-                                     self.kernel_medium, iterations=1)
+                                    self.kernel_medium, iterations=1)
         
         mask_fish = cv2.GaussianBlur(mask_fish, (3, 3), 0)
         mask_fish = cv2.threshold(mask_fish, 200, 255, cv2.THRESH_BINARY)[1]

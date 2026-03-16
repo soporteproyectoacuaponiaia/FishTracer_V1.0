@@ -340,30 +340,25 @@ class EditMeasurementDialog(QDialog):
         
     def _find_image_forensic(self, old_path_db):
         """
-        Busca la imagen usando múltiples estrategias, igual que MainWindow.view_measurement_image()
-        
-        ESTRATEGIA 1: Ruta directa de BD
-        ESTRATEGIA 2: Búsqueda por nombre en Config.IMAGES_*_DIR
-        ESTRATEGIA 3: Búsqueda por timestamp (patrón de fecha)
-        
-        Retorna: ruta absoluta del archivo encontrado, o None
+        Busca imagen: delegando a MainWindow caché cuando está disponible (performance O(1)).
+        Fallback a búsqueda local si MainWindow no está accesible.
         """
-        # ──────────────────────────────────────────────────
-        # CASO A: La ruta existe tal cual
-        # ──────────────────────────────────────────────────
+        # ESTRATEGIA 1: Intentar obtener MainWindow y usar su caché (rápido)
+        main_window = self._find_main_window()
+        if main_window and hasattr(main_window, '_resolve_measurement_image_path'):
+            result = main_window._resolve_measurement_image_path(self.measurement_data)
+            if result:
+                return result
+        
+        # ESTRATEGIA 2: Fallback a búsqueda local (compatibilidad)
         if old_path_db and os.path.exists(old_path_db):
-            print(f"✅ Imagen encontrada directamente: {old_path_db}")
             return old_path_db
         
         archivo_encontrado = None
         
-        # ──────────────────────────────────────────────────
-        # CASO B: Búsqueda por NOMBRE DE ARCHIVO
-        # ──────────────────────────────────────────────────
+        # Búsqueda por nombre
         if old_path_db:
             fname = os.path.basename(old_path_db)
-            
-            # Usar Config.IMAGES_*_DIR (rutas absolutas configuradas)
             posibles = [
                 os.path.join(Config.IMAGES_MANUAL_DIR, fname),
                 os.path.join(Config.IMAGES_AUTO_DIR, fname),
@@ -371,49 +366,43 @@ class EditMeasurementDialog(QDialog):
             
             for p in posibles:
                 if os.path.exists(p):
-                    archivo_encontrado = p
-                    print(f"✅ Imagen encontrada por nombre en: {p}")
-                    break
+                    return p
         
-        # ──────────────────────────────────────────────────
-        # CASO C: BÚSQUEDA FORENSE POR TIMESTAMP
-        # ──────────────────────────────────────────────────
-        if not archivo_encontrado:
-            ts_str = str(self.measurement_data.get('timestamp', ""))
-            fish_id = str(self.measurement_data.get('fish_id', ""))
-            
-            try:
-                # Convertir "2026-02-11 18:30:00" → "20260211_183000"
-                ts_clean = ts_str.replace("-", "").replace(":", "").replace(" ", "_")
-                key_search = ts_clean[:15]  # Primeros 15 caracteres
-            except:
-                key_search = "INVALIDO"
-            
-            # Directorios donde buscar
-            search_dirs = [
-                Config.IMAGES_MANUAL_DIR,
-                Config.IMAGES_AUTO_DIR,
-                os.getcwd()  # Como último recurso
-            ]
-            
-            if len(key_search) > 10:  # Solo si la fecha parece válida
-                for carpeta in search_dirs:
-                    if not os.path.exists(carpeta):
-                        continue
-                    
-                    # Buscar cualquier JPG que contenga esa fecha exacta
-                    patron = os.path.join(carpeta, f"*{key_search}*.jpg")
-                    coincidencias = glob.glob(patron)
-                    
-                    if coincidencias:
-                        archivo_encontrado = coincidencias[0]
-                        # Preferir el que tenga el mismo ID
-                        for c in coincidencias:
-                            if fish_id in os.path.basename(c):
-                                archivo_encontrado = c
-                                break
-                        print(f"✅ Imagen encontrada por timestamp: {archivo_encontrado}")
-                        break
+        # Búsqueda por timestamp (fallback lento)
+        ts_str = str(self.measurement_data.get('timestamp', ""))
+        fish_id = str(self.measurement_data.get('fish_id', ""))
+        
+        try:
+            ts_clean = ts_str.replace("-", "").replace(":", "").replace(" ", "_")
+            key_search = ts_clean[:15]
+        except:
+            key_search = "INVALIDO"
+        
+        search_dirs = [
+            Config.IMAGES_MANUAL_DIR,
+            Config.IMAGES_AUTO_DIR,
+            os.getcwd()
+        ]
+        
+        if len(key_search) > 10:
+            for carpeta in search_dirs:
+                if not os.path.exists(carpeta):
+                    continue
+                
+                try:
+                    for name in os.listdir(carpeta):
+                        lower_name = name.lower()
+                        if key_search in name and lower_name.endswith(('.jpg', '.jpeg', '.png')):
+                            candidate = os.path.join(carpeta, name)
+                            if not archivo_encontrado or (fish_id and fish_id in name):
+                                archivo_encontrado = candidate
+                                if fish_id and fish_id in name:
+                                    break
+                except Exception:
+                    continue
+                
+                if archivo_encontrado:
+                    break
         
         return archivo_encontrado
     

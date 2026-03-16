@@ -23,16 +23,18 @@ class SimpleMotionDetector:
     Mantiene los frames en la VRAM de la GPU para evitar descargas innecesarias.
     """
     
-    def __init__(self, threshold: float = 8.0, history_size: int = Config.STABILITY_FRAMES, proc_width: int = 320):
+    def __init__(self, threshold: float = 8.0, history_size: int = Config.STABILITY_FRAMES, proc_width: int = 320, force_cpu: bool = False):
         """
         Args:
             threshold: Sensibilidad (Más bajo = detecta movimientos más sutiles).
             history_size: Cuántos cuadros deben ser estables para dar el OK.
             proc_width: Ancho interno de procesamiento.
+            force_cpu: Si True, fuerza uso de CPU incluso si CUDA está disponible.
         """
         self.threshold = threshold 
         self.history_size = history_size
         self.proc_width = proc_width
+        self.force_cpu = force_cpu
         
         # Estado interno
         self.motion_history: deque = deque(maxlen=history_size)
@@ -43,14 +45,23 @@ class SimpleMotionDetector:
         self.gpu_filter = None
 
         try:
-            if cv2.cuda.getCudaEnabledDeviceCount() > 0:
+            cuda_device_count = cv2.cuda.getCudaEnabledDeviceCount() if not force_cpu else 0
+            
+            if cuda_device_count > 0:
                 self.gpu_filter = cv2.cuda.createGaussianFilter(cv2.CV_8UC1, cv2.CV_8UC1, (15, 15), 0)
                 self.use_cuda = True
-                logger.info("Aceleracion CUDA activada.")
+                logger.info("🎮 Aceleración CUDA activada en SimpleMotionDetector.")
             else:
-                logger.warning("No se detecto dispositivo CUDA. Usando CPU.")
+                if force_cpu:
+                    logger.info("💾 CPU forzado por usuario en SimpleMotionDetector.")
+                else:
+                    logger.warning(
+                        "⚠️ CUDA no detectado en SimpleMotionDetector. OpenCV sin soporte CUDA.\n"
+                        "   Usando CPU (más lento).\n"
+                        "   💡 NOTA: Para habilitar CUDA, ver CUDA_SETUP.md en la raíz del proyecto."
+                    )
         except Exception as e:
-            logger.error(f"Error inicializando CUDA: {e}. Se usara CPU.")
+            logger.error(f"❌ Error detectando CUDA en SimpleMotionDetector: {e}. Usando CPU fallback.")
 
         self.last_frame_cpu: Optional[np.ndarray] = None
         
@@ -58,6 +69,12 @@ class SimpleMotionDetector:
             "init | threshold=%.2f history=%d width=%d CUDA=%s.",
             threshold, history_size, proc_width, self.use_cuda
         )
+    
+    @classmethod
+    def create_with_cpu_override(cls, **kwargs):
+        """Factory method para crear instancia forzando CPU."""
+        kwargs['force_cpu'] = True
+        return cls(**kwargs)
     
     def is_stable(self, frame: np.ndarray) -> bool:
         """

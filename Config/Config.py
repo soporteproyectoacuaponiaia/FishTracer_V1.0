@@ -2,7 +2,7 @@
 PROYECTO: FishTrace - Trazabilidad de Crecimiento de Peces
 MÓDULO: Configuración Centralizada (Config.py)
 DESCRIPCIÓN: Define las constantes globales, parámetros de hardware, 
-             modelos biológicos y calibración geométrica para el sistema.
+            modelos biológicos y calibración geométrica para el sistema.
 """
 
 import os
@@ -157,6 +157,16 @@ class Config:
 
     # Frames consecutivos requeridos para validar una medición estable
     STABILITY_FRAMES = 5
+
+    # Retardo del guardado automático (ms)
+    AUTO_CAPTURE_SAVE_DELAY_MS = 17000
+
+    # Mínimo de frames válidos para aplicar suavizado temporal
+    TEMPORAL_SMOOTHING_MIN_FRAMES = 5
+    USE_TEMPORAL_SMOOTHING = True
+
+    # Tolerancia máxima de discrepancia entre longitudes (lateral vs cenital)
+    MAX_LENGTH_VIEW_DISCREPANCY_RATIO = 0.25
     
     # ==========================================================================
     #  CONSTANTES DE MEDIOS (cm) ===
@@ -251,7 +261,7 @@ class Config:
         según la orientación específica de cada cámara.
         """
         if max_y <= 0:
-            return escala_frente
+            return max(0.0001, float(escala_frente or 0.0001))
 
         proporcion = valor_y / max_y
         
@@ -277,10 +287,13 @@ class Config:
             (dist_agua_actual / Config.N_AGUA)
         )
 
-        factor_correccion = dist_aparente / dist_real
-        
-        return escala_aire * factor_correccion
+        if dist_real <= 0:
+            return max(0.0001, float(escala_aire or 0.0001))
 
+        factor_correccion = dist_aparente / dist_real
+
+        escala_final = float(escala_aire) * float(factor_correccion)
+        return max(0.0001, escala_final)
 
 # Inicialización automática de la configuración
 Config.initialize()
