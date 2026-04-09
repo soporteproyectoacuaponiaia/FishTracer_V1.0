@@ -186,6 +186,8 @@ class MainWindow(QMainWindow):
         self._cam_health_top = "warning"
         self._auto_reconnect_attempts = 0
         self._auto_reconnect_running = False
+        self._camera_failure_window_start = 0.0
+        self._camera_grace_until = 0.0
         self._microcuts_left = deque()
         self._microcuts_top = deque()
         self.settings_dirty = False
@@ -6633,6 +6635,8 @@ QPushButton[class="info"] {{
             self._left_signal_failures = 0
             self._top_signal_failures = 0
             self._auto_reconnect_attempts = 0
+            self._camera_failure_window_start = 0.0
+            self._camera_grace_until = time.time() + 2.0
             self._microcuts_left.clear()
             self._microcuts_top.clear()
 
@@ -6683,6 +6687,8 @@ QPushButton[class="info"] {{
         self._camera_read_failures = 0
         self._left_signal_failures = 0
         self._top_signal_failures = 0
+        self._camera_failure_window_start = 0.0
+        self._camera_grace_until = 0.0
         self.cameras_connected = False
         self.update_camera_dependent_buttons(False)
         self._configure_camera_tabs(False)
@@ -6795,13 +6801,25 @@ QPushButton[class="info"] {{
         self._update_camera_health_indicators(left_state, top_state, left_detail, top_detail)
 
         if not (ret_l and ret_t):
+            now = time.time()
+
+            if now < self._camera_grace_until:
+                return
+
+            if self._camera_failure_window_start <= 0:
+                self._camera_failure_window_start = now
+
             self._camera_read_failures += 1
-            if self._camera_read_failures >= 6:
+            fail_window_seconds = max(1.2, 12.0 / max(1, Config.PREVIEW_FPS))
+            loss_duration = now - self._camera_failure_window_start
+
+            if self._camera_read_failures >= 8 and loss_duration >= fail_window_seconds:
                 self._handle_camera_failure("Se perdió la conexión de cámaras durante la captura")
                 self._request_auto_reconnect("sin señal en stream")
             return
 
         self._camera_read_failures = 0
+        self._camera_failure_window_start = 0.0
 
         # Guardamos referencia para cuentagotas (sin copiar memoria)
         self.current_frame_left = frame_l

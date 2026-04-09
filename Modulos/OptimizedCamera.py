@@ -8,6 +8,7 @@ DESCRIPCIÓN: Wrapper multihilo para OpenCV VideoCapture. Implementa el patrón
 
 import cv2
 import threading
+import time
 
 from Config.Config import Config
 
@@ -47,6 +48,8 @@ class OptimizedCamera:
             if ret:
                 with self.lock:
                     self.latest_frame = frame
+            else:
+                time.sleep(0.01)
     
     def read(self):
         """Obtiene el frame más reciente (thread-safe)"""
